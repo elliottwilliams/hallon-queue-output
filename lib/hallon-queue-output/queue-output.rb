@@ -4,7 +4,7 @@ module Hallon
 		attr_accessor :queue, :format, :verbose
 
 		def initialize
-			@playing, @stopped = false
+			@should_stream = true
 			@stutter = 0
 			@verbose = false
 		end
@@ -15,27 +15,24 @@ module Hallon
 		end
 
 		def play
-			@playing = true
-			@stopped = false
+			ensure_streaming
 			print "\e[1;32m(play)\e[0m" if @verbose
 		end
 
 		def pause
 			@playing = false
+			stop_streaming
 			print "\e[1;33m(pause)\e[0m" if @verbose
 		end
 
 		def stop
-			@stopped = true
-			@stream_thread.exit if @stream_thread
-
+			stop_streaming
 			print "\e[1;31m(stop)\e[0m" if @verbose
 		end
 
 		def drops # Return number of queue stutters since the last call
 			current_stutter, @stutter = @stutter, 0
 			print "(reported #{current_stutter} stutters) " if current_stutter > 0 && @verbose
-			pause if current_stutter > (@format[:rate] / 4)
 			current_stutter
 		end
 
@@ -47,24 +44,23 @@ module Hallon
 				play # always play initially
 
 				loop do
-					if @playing
+					unless @should_stream
+						Thread.stop
+					end
 
-						completion = Time.now.to_f + 0.5
+					completion = Time.now.to_f + 0.5
 
-						# Get the next block from Spotify.
-						audio_data = yield(@buffer_size)					
+					# Get the next block from Spotify.
+					audio_data = yield(@buffer_size)
 
-						@queue << audio_data
+					@queue << audio_data
 
-						actual = Time.now.to_f
-
-						# sleep until it's time for the next frame
-						if actual > completion
-							process_stutter(completion, actual)
-						else
-							sleep completion - actual
-						end
-
+					# sleep until it's time for the next frame
+					actual = Time.now.to_f
+					if actual > completion
+						process_stutter(completion, actual)
+					else
+						sleep completion - actual
 					end
 				end
 			end
@@ -72,11 +68,21 @@ module Hallon
 
 		private
 
+		def ensure_streaming
+			@should_stream = true
+			@stream_thread.wakeup if @stream_thread.stop?
+		end
+
+		def stop_streaming
+			@should_stream = false
+		end
+
 		def process_stutter(projected_end, actual_end)
 			sec_missed     = actual_end - projected_end
 			samples_missed = (sec_missed * @format[:rate]).to_i
 			print "(#{samples_missed} stutter) " if @verbose
 			@stutter += samples_missed
+			pause if @stutter > (@format[:rate] / 4)
 		end
 
 	end
