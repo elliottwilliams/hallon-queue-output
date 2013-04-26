@@ -44,16 +44,17 @@ module Hallon
 				play # always play initially
 
 				loop do
+					completion = Time.now.to_f + 0.5
+
 					unless @should_stream
 						Thread.stop
+						next
 					end
-
-					completion = Time.now.to_f + 0.5
 
 					# Get the next block from Spotify.
 					audio_data = yield(@buffer_size)
 
-					@queue << audio_data
+					@queue << audio_data unless audio_data.nil?
 
 					# sleep until it's time for the next frame
 					actual = Time.now.to_f
