@@ -6,16 +6,6 @@ An audio driver for Hallon, a ruby client for libspotify. Streams audio into a r
 
 ## Installation
 
-Add this line to your application's Gemfile:
-
-    gem 'hallon-queue-output'
-
-And then execute:
-
-    $ bundle
-
-Or install it yourself as:
-
     $ gem install hallon-queue-output
 
 ## Usage
@@ -34,3 +24,7 @@ player = Hallon::Player.new Hallon::QueueOutput, Proc.new do
 	@driver.queue = my_queue
 end
 ```
+
+##TODO
+
+- Support changes in format. Right now, playing a track *not* at 44.1khz will produce no output.
